@@ -20,7 +20,9 @@ void VPDetection::run( std::vector<std::vector<double> > &lines, cv::Point2d pp,
 	this->lines = lines;
 	this->pp = pp;
 	this->f = f;
-	this->noiseRatio = 0.5; 
+	this->noiseRatio = 0.980; //0.97 uses 32.7 second, 0.98 uses 77 seconds, 0.985 uses 193 seconds
+
+	printf("noiseRatio: %f\n", this->noiseRatio);
 
 	cout<<"get vp hypotheses . . ."<<endl;
 	std::vector<std::vector<cv::Point3d> > vpHypo;
@@ -54,6 +56,9 @@ void VPDetection::getVPHypVia2Lines( std::vector<std::vector<cv::Point3d> > &vpH
 
 	double confEfficience = 0.9999;
 	int it = log( 1 - confEfficience ) / log( 1.0 - p );
+
+	printf("iteration needed: %i\n", it);
+	printf("%% of iteration to total possibility: %f\n", 100*(it*1.0)/(num*(num-1)*0.5));
 	
 	int numVp2 = 360;
 	double stepVp2 = 2.0 * CV_PI / numVp2;
@@ -78,13 +83,19 @@ void VPDetection::getVPHypVia2Lines( std::vector<std::vector<cv::Point3d> > &vpH
 		}
 	}
 
+	printf("Finish getting parameters of each lines... \n");
+
 	// get vp hypothesis for each iteration
 	// vpHypo = std::vector<std::vector<cv::Point3d> > ( it * numVp2, 3 );
 	vpHypo = std::vector<std::vector<cv::Point3d> > ( it * numVp2, std::vector<cv::Point3d>(3) );
 	int count = 0;
 	srand((unsigned)time(NULL));  
+
+	printf("Start the main loop to generate vp hypothesis ... \n");
 	for ( int i = 0; i < it; ++ i )
 	{
+		if (i%5000==0) printf("%i vp hypothesis is proceeded...\n", i);
+
 		int idx1 = rand() % num;
 		int idx2 = rand() % num;
 		while ( idx2 == idx1 )
@@ -217,31 +228,31 @@ void VPDetection::getSphereGrids( std::vector<std::vector<double> > &sphereGrid 
 		}
 	}
 
-	// 
-	int halfSize = 1;
-	int winSize = halfSize * 2 + 1;
-	int neighNum = winSize * winSize;
+	// // 
+	// int halfSize = 1;
+	// int winSize = halfSize * 2 + 1;
+	// int neighNum = winSize * winSize;
 
-	// get the weighted line length of each grid
-	//std::vector<std::vector<double> > sphereGridNew( gridLA, gridLO );
-	std::vector< std::vector<double> > sphereGridNew = std::vector< std::vector<double> >( gridLA, std::vector<double>(gridLO) );
-	for ( int i=halfSize; i<gridLA-halfSize; ++i )
-	{
-		for ( int j=halfSize; j<gridLO-halfSize; ++j )
-		{
-			double neighborTotal = 0.0;
-			for ( int m=0; m<winSize; ++m )
-			{
-				for ( int n=0; n<winSize; ++n )
-				{
-					neighborTotal += sphereGrid[i-halfSize+m][j-halfSize+n];
-				}
-			}
+	// // get the weighted line length of each grid
+	// //std::vector<std::vector<double> > sphereGridNew( gridLA, gridLO );
+	// std::vector< std::vector<double> > sphereGridNew = std::vector< std::vector<double> >( gridLA, std::vector<double>(gridLO) );
+	// for ( int i=halfSize; i<gridLA-halfSize; ++i )
+	// {
+	// 	for ( int j=halfSize; j<gridLO-halfSize; ++j )
+	// 	{
+	// 		double neighborTotal = 0.0;
+	// 		for ( int m=0; m<winSize; ++m )
+	// 		{
+	// 			for ( int n=0; n<winSize; ++n )
+	// 			{
+	// 				neighborTotal += sphereGrid[i-halfSize+m][j-halfSize+n];
+	// 			}
+	// 		}
 
-			sphereGridNew[i][j] = sphereGrid[i][j] + neighborTotal / neighNum;
-		}
-	}
-	sphereGrid = sphereGridNew;
+	// 		sphereGridNew[i][j] = sphereGrid[i][j] + neighborTotal / neighNum;
+	// 	}
+	// }
+	// sphereGrid = sphereGridNew;
 }
 
 void VPDetection::getBestVpsHyp( std::vector<std::vector<double> > &sphereGrid, std::vector<std::vector<cv::Point3d> > &vpHypo, std::vector<cv::Point3d> &vps )
@@ -253,6 +264,7 @@ void VPDetection::getBestVpsHyp( std::vector<std::vector<double> > &sphereGrid, 
 	std::vector<double> lineLength( num, 0.0 );
 	for ( int i = 0; i < num; ++ i )
 	{
+		if (i%1000000==0) printf("%i 3vps triplet hypothesis is tested...\n", i);
 		std::vector<cv::Point2d> vpLALO( 3 ); 
 		for ( int j = 0; j < 3; ++ j )
 		{
@@ -283,6 +295,8 @@ void VPDetection::getBestVpsHyp( std::vector<std::vector<double> > &sphereGrid, 
 			lineLength[i] += sphereGrid[gridLA][gridLO];
 		}
 	}
+
+	printf("finish getting the corresponding line length of every hypotheses\n");
 
 	// get the best hypotheses
 	int bestIdx = 0;
